@@ -68,11 +68,14 @@ export const useLogin = () => {
           name: data.nickname,
           email: data.email,
         };
-        authorizationUtil.setItems({
-          Authorization: authorization,
-          userInfo: JSON.stringify(userInfo),
-          Token: token,
-        });
+        // authorizationUtil.setItems({
+        //   Authorization: authorization,
+        //   userInfo: JSON.stringify(userInfo),
+        //   Token: token,
+        // });
+        authorizationUtil.setAuthorization(authorization || '');
+        authorizationUtil.setToken(token);
+        authorizationUtil.setUserInfo(userInfo);
       }
       return res.code;
     },

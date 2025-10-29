@@ -70,11 +70,11 @@ i18n
   .use(LanguageDetector)
   .init({
     detection: {
-      lookupLocalStorage: 'lng',
+      lookupLocalStorage: 'ragflow-lang',
     },
     supportedLngs: Object.values(LanguageAbbreviation),
     resources,
-    fallbackLng: 'en',
+    fallbackLng: 'zh',
     interpolation: {
       escapeValue: false,
     },

@@ -1,5 +1,5 @@
 import { Outlet } from 'umi';
-import { SideBar } from './sidebar';
+// import { SideBar } from './sidebar';
 
 import { PageHeader } from '@/components/page-header';
 import {
@@ -43,7 +43,7 @@ const UserSetting = () => {
           'overflow-auto flex flex-1 pt-4 pr-4 pb-4',
         )}
       >
-        <SideBar></SideBar>
+        {/* <SideBar></SideBar> */}
         <div
           className={cn(
             styles.outletWrapper,

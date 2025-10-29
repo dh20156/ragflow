@@ -85,6 +85,8 @@ MAIL_PASSWORD = ""
 MAIL_DEFAULT_SENDER = ()
 MAIL_FRONTEND_URL = ""
 
+# anybase config
+ANYBASE_ME_URL = "http://127.0.0.1:8080/api/v1/user/me"
 
 def get_or_create_secret_key():
     secret_key = os.environ.get("RAGFLOW_SECRET_KEY")

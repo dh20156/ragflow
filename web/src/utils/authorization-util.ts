@@ -1,4 +1,4 @@
-import { Authorization, Token, UserInfo } from '@/constants/authorization';
+import { Authorization, Token, UserInfo, Lang } from '@/constants/authorization';
 import { getSearchValue } from './common-util';
 const KeySet = [Authorization, Token, UserInfo];
 
@@ -13,7 +13,7 @@ const storage = {
     return localStorage.getItem(UserInfo);
   },
   getUserInfoObject: () => {
-    return JSON.parse(localStorage.getItem('userInfo') || '');
+    return JSON.parse(localStorage.getItem(UserInfo) || '');
   },
   setAuthorization: (value: string) => {
     localStorage.setItem(Authorization, value);
@@ -39,10 +39,10 @@ const storage = {
     });
   },
   setLanguage: (lng: string) => {
-    localStorage.setItem('lng', lng);
+    localStorage.setItem(Lang, lng);
   },
   getLanguage: (): string => {
-    return localStorage.getItem('lng') as string;
+    return localStorage.getItem(Lang) as string;
   },
 };
 
@@ -59,5 +59,5 @@ export default storage;
 
 // Will not jump to the login page
 export function redirectToLogin() {
-  window.location.href = location.origin + `/login`;
+  window.location.href = location.origin + `/ragflow/login`;
 }

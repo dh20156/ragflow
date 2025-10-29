@@ -63,6 +63,111 @@ from api.utils.web_utils import (
     captcha_key,
 )
 
+import httpx
+
+
+def anybase_user_login(cookies: dict | None):
+    """
+    使用 httpx 同步请求 Anybase /api/v1/user/me。
+    参数:
+      cookies: 来自前端请求的 cookie 字典，透传给 Anybase，可为 None
+    返回:
+      ("ok", user) / ("unauthorized", None) / ("skip", None) / ("error", str)
+    """
+    anybase_me = getattr(settings, "ANYBASE_ME_URL", None)
+    if not anybase_me:
+        return ("skip", None)
+
+    anybase_token = cookies.get("session") if cookies else None
+
+    # print(f'\n\nanybase_token:{anybase_token}\n\nanybase_me: {anybase_me}')
+
+    headers = {}
+    if anybase_token:
+        headers["Authorization"] = anybase_token
+
+    try:
+        # 同步客户端
+        with httpx.Client(timeout=5.0) as client:
+            resp = client.get(anybase_me, headers=headers)
+
+        # print(f'\n\nresp:{resp}')
+
+        if resp.status_code == 401:
+            return ("unauthorized", None)
+        if resp.status_code != 200:
+            return ("error", f"anybase user login failed: {resp.status_code}")
+
+        anybase_user_data = resp.json()['data'] or {}
+
+        # print(f'\n\nanybase_user_data:{anybase_user_data}')
+
+        # Extract user info from Anybase response
+        anybase_user_id = anybase_user_data.get("user_id")
+        anybase_user_code = anybase_user_data.get("user_code")
+        anybase_nickname = anybase_user_data.get("nickname")
+        anybase_email = anybase_user_data.get("email")
+        anybase_phone = anybase_user_data.get("phone")
+        anybase_user_role = anybase_user_data.get("role", [])
+        is_superuser = "admin" in anybase_user_role
+        # print(f'\n\n{anybase_user_code} is_superuser? {is_superuser}')
+        
+        # Extract new department and tenant info
+        anybase_user_tenant_id = anybase_user_data.get("tenant_id")
+        anybase_user_tenant_name = anybase_user_data.get("tenant_name")
+        anybase_user_tenant_code = anybase_user_data.get("tenant_code")
+        anybase_user_deps_id = anybase_user_data.get("deps_id")
+        anybase_user_deps_name = anybase_user_data.get("deps_name")
+        anybase_tenant_list = anybase_user_data.get("tenant_list", [])
+        anybase_deps_list = anybase_user_data.get("deps_list", [])
+
+        avatar_url = ""
+        if not anybase_email:
+            anybase_email = f'{anybase_user_code}@{anybase_user_tenant_code}'
+
+        users = UserService.query(email=anybase_email)
+
+        print(f'\n====login user====\n{users}')
+
+        if not users:
+            user_id = get_uuid()
+            try:
+                print(f'\n====start register anybase user====\n')
+                users = user_register(
+                    user_id,
+                    {
+                        "user_id": user_id,
+                        "email": anybase_email,
+                        "avatar": avatar_url,
+                        "nickname": anybase_nickname,
+                        "tenant": anybase_user_tenant_code,
+                        "login_channel": "anybase",
+                        "last_login_time": get_format_time(),
+                        "language": "Chinese",
+                        "color_schema": "Bright",
+                        "is_superuser": is_superuser,
+                    },
+                )
+                if not users:
+                    raise Exception(f"Fail to register {anybase_email}.")
+                if len(users) > 1:
+                    raise Exception(f"Same email: {anybase_email} exists!")
+            except Exception as e:
+                rollback_user_registration(user_id)
+                print(f'\n❌ Register failed:{str(e)}')
+                return ("error", str(e))
+
+        user = users[0]
+        user.tenant_id = anybase_user_tenant_code
+        session["current_user_tenant_id"] = anybase_user_tenant_code
+
+        return ("ok", user)
+
+    except httpx.RequestError as e:
+        return ("error", f"http request error: {str(e)}")
+    except Exception as e:
+        return ("error", str(e))
+
 
 @manager.route("/login", methods=["POST", "GET"])  # noqa: F821
 def login():
@@ -95,47 +200,66 @@ def login():
         schema:
           type: object
     """
-    if not request.json:
-        return get_json_result(data=False, code=settings.RetCode.AUTHENTICATION_ERROR, message="Unauthorized!")
-
-    email = request.json.get("email", "")
-    users = UserService.query(email=email)
-    if not users:
-        return get_json_result(
-            data=False,
-            code=settings.RetCode.AUTHENTICATION_ERROR,
-            message=f"Email: {email} is not registered!",
-        )
-
-    password = request.json.get("password")
-    try:
-        password = decrypt(password)
-    except BaseException:
-        return get_json_result(data=False, code=settings.RetCode.SERVER_ERROR, message="Fail to crypt password")
-
-    user = UserService.query_user(email, password)
-
-    if user and hasattr(user, 'is_active') and user.is_active == "0":
-        return get_json_result(
-            data=False,
-            code=settings.RetCode.FORBIDDEN,
-            message="This account has been disabled, please contact the administrator!",
-        )
-    elif user:
+    cookies_dict = dict(request.cookies or {})
+    status, user = anybase_user_login(cookies_dict)
+    print(f'\nanybase login status:{status}, user:{user}\n')
+    if status == "ok" and user is not None:
         response_data = user.to_json()
-        user.access_token = get_uuid()
         login_user(user)
+        user.access_token = get_uuid()
         user.update_time = (current_timestamp(),)
         user.update_date = (datetime_format(datetime.now()),)
         user.save()
         msg = "Welcome back!"
+
+        # current_user.tenant_id = "anybase"
+        
+        print(f'\nlogin user:\n{current_user.to_json()}\n')
+        print(f'\nload_user user tenant id:\n{current_user.tenant_id}\n')
+
         return construct_response(data=response_data, auth=user.get_id(), message=msg)
-    else:
-        return get_json_result(
-            data=False,
-            code=settings.RetCode.AUTHENTICATION_ERROR,
-            message="Email and password do not match!",
-        )
+    
+    # if not request.json:
+    #     return get_json_result(data=False, code=settings.RetCode.AUTHENTICATION_ERROR, message="Unauthorized!")
+
+    # email = request.json.get("email", "")
+    # users = UserService.query(email=email)
+    # if not users:
+    #     return get_json_result(
+    #         data=False,
+    #         code=settings.RetCode.AUTHENTICATION_ERROR,
+    #         message=f"Email: {email} is not registered!",
+    #     )
+
+    # password = request.json.get("password")
+    # try:
+    #     password = decrypt(password)
+    # except BaseException:
+    #     return get_json_result(data=False, code=settings.RetCode.SERVER_ERROR, message="Fail to crypt password")
+
+    # user = UserService.query_user(email, password)
+
+    # if user and hasattr(user, 'is_active') and user.is_active == "0":
+    #     return get_json_result(
+    #         data=False,
+    #         code=settings.RetCode.FORBIDDEN,
+    #         message="This account has been disabled, please contact the administrator!",
+    #     )
+    # elif user:
+    #     response_data = user.to_json()
+    #     user.access_token = get_uuid()
+    #     login_user(user)
+    #     user.update_time = (current_timestamp(),)
+    #     user.update_date = (datetime_format(datetime.now()),)
+    #     user.save()
+    #     msg = "Welcome back!"
+    #     return construct_response(data=response_data, auth=user.get_id(), message=msg)
+    # else:
+    #     return get_json_result(
+    #         data=False,
+    #         code=settings.RetCode.AUTHENTICATION_ERROR,
+    #         message="Email and password do not match!",
+    #     )
 
 
 @manager.route("/login/channels", methods=["GET"])  # noqa: F821

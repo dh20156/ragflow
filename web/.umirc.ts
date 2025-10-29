@@ -7,17 +7,17 @@ const ESLintPlugin = require('eslint-webpack-plugin');
 
 export default defineConfig({
   title: appName,
-  outputPath: 'dist',
+  outputPath: 'ragflow',
   alias: { '@parent': path.resolve(__dirname, '../') },
   npmClient: 'npm',
-  base: '/',
+  base: '/ragflow/',
   routes,
-  publicPath: '/',
+  publicPath: '/ragflow/',
   esbuildMinifyIIFE: true,
   icons: {},
   hash: true,
-  favicons: ['/logo.svg'],
-  headScripts: [{ src: '/iconfont.js', defer: true }],
+  favicons: ['/ragflow/logo.svg'],
+  headScripts: [{ src: '/ragflow/iconfont.js', defer: true }],
   clickToComponent: {},
   history: {
     type: 'browser',
@@ -34,8 +34,8 @@ export default defineConfig({
   },
   devtool: 'source-map',
   copy: [
-    { from: 'src/conf.json', to: 'dist/conf.json' },
-    { from: 'node_modules/monaco-editor/min/vs/', to: 'dist/vs/' },
+    { from: 'src/conf.json', to: 'ragflow/conf.json' },
+    { from: 'node_modules/monaco-editor/min/vs/', to: 'ragflow/vs/' },
   ],
   proxy: [
     {

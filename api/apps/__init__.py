@@ -83,6 +83,7 @@ app.errorhandler(Exception)(server_error_response)
 
 ## convince for dev and debug
 # app.config["LOGIN_DISABLED"] = True
+app.config["SESSION_COOKIE_NAME"] = "ragflow_session"
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 app.config["MAX_CONTENT_LENGTH"] = int(

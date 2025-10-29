@@ -30,7 +30,8 @@ infinity:
   db_name: 'default_db'
 redis:
   db: 1
-  password: 'infini_rag_flow'
+  # password: 'infini_rag_flow'
+  password: ''
   host: 'localhost:6379'
 user_default_llm:
   default_models:
