@@ -584,6 +584,8 @@ export const initialCodeValues = {
 
 export const initialWaitingDialogueValues = {};
 
+export const AgentStructuredOutputField = 'structured';
+
 export const initialAgentValues = {
   ...initialLlmBaseValues,
   description: '',
@@ -615,6 +617,7 @@ export const initialAgentValues = {
       type: 'string',
       value: '',
     },
+    [AgentStructuredOutputField]: {},
   },
 };
 
