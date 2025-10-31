@@ -20,6 +20,7 @@ from flask import request
 from flask_login import login_required, current_user
 from api.db.services.tenant_llm_service import LLMFactoriesService, TenantLLMService
 from api.db.services.llm_service import LLMService
+from api.db.services.user_service import UserTenantService
 from api.utils.api_utils import server_error_response, get_data_error_result, validate_request
 from api.db import StatusEnum, LLMType
 from api.db.db_models import TenantLLM
@@ -368,19 +369,27 @@ def my_llms():
 @manager.route('/list', methods=['GET'])  # noqa: F821
 @login_required
 def list_app():
-    self_deployed = ["FastEmbed", "Ollama", "Xinference", "LocalAI", "LM-Studio", "GPUStack"]
-    weighted = []
+    self_deployed = ["Youdao", "FastEmbed", "BAAI", "Ollama", "Xinference", "LocalAI", "LM-Studio", "GPUStack"]
+    weighted = ["Youdao", "FastEmbed", "BAAI"] if settings.LIGHTEN != 0 else []
     model_type = request.args.get("model_type")
     try:
-        objs = TenantLLMService.query(tenant_id=current_user.id)
+        # objs = TenantLLMService.query(tenant_id=current_user.id)
+        # 共享租户的llm
+        tenant_ids = [item.tenant_id for item in UserTenantService.get_tenants_by_user_id(current_user.id)]
+
+        if not tenant_ids:
+            objs = []
+        else:
+            model = TenantLLMService.model
+            query = model.select().where(model.tenant_id.in_(tenant_ids))
+            objs = list(query)
+
         facts = set([o.to_dict()["llm_factory"] for o in objs if o.api_key])
         llms = LLMService.get_all()
         llms = [m.to_dict()
                 for m in llms if m.status == StatusEnum.VALID.value and m.fid not in weighted]
         for m in llms:
             m["available"] = m["fid"] in facts or m["llm_name"].lower() == "flag-embedding" or m["fid"] in self_deployed
-            if "tei-" in os.getenv("COMPOSE_PROFILES", "") and m["model_type"]==LLMType.EMBEDDING and m["fid"]=="Builtin" and m["llm_name"]==os.getenv('TEI_MODEL', ''):
-                m["available"] = True
 
         llm_set = set([m["llm_name"] + "@" + m["fid"] for m in llms])
         for o in objs:

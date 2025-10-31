@@ -104,8 +104,6 @@ def anybase_user_login(cookies: dict | None):
         anybase_email = anybase_user_data.get("email")
         anybase_phone = anybase_user_data.get("phone")
         anybase_user_role = anybase_user_data.get("role", [])
-        is_superuser = "admin" in anybase_user_role
-        # print(f'\n\n{anybase_user_code} is_superuser? {is_superuser}')
         
         # Extract new department and tenant info
         anybase_user_tenant_id = anybase_user_data.get("tenant_id")
@@ -122,12 +120,14 @@ def anybase_user_login(cookies: dict | None):
 
         users = UserService.query(email=anybase_email)
 
-        print(f'\n====login user====\n{users}')
+        # print(f'\n====login user====\n{users}')
 
         if not users:
             user_id = get_uuid()
+            is_admin = "admin" in anybase_user_role
+
             try:
-                print(f'\n====start register anybase user====\n')
+                # print(f'\n====start register anybase user====\n')
                 users = user_register(
                     user_id,
                     {
@@ -136,11 +136,12 @@ def anybase_user_login(cookies: dict | None):
                         "avatar": avatar_url,
                         "nickname": anybase_nickname,
                         "tenant": anybase_user_tenant_code,
+                        "is_admin": is_admin,
                         "login_channel": "anybase",
                         "last_login_time": get_format_time(),
                         "language": "Chinese",
                         "color_schema": "Bright",
-                        "is_superuser": is_superuser,
+                        "is_superuser": False,
                     },
                 )
                 if not users:
@@ -153,8 +154,6 @@ def anybase_user_login(cookies: dict | None):
                 return ("error", str(e))
 
         user = users[0]
-        user.tenant_id = anybase_user_tenant_code
-        session["current_user_tenant_id"] = anybase_user_tenant_code
 
         return ("ok", user)
 
@@ -210,7 +209,6 @@ def login():
         # current_user.tenant_id = "anybase"
         
         print(f'\nlogin user:\n{current_user.to_json()}\n')
-        print(f'\nload_user user tenant id:\n{current_user.tenant_id}\n')
 
         return construct_response(data=response_data, auth=user.get_id(), message=msg)
     
@@ -742,9 +740,19 @@ def rollback_user_registration(user_id):
 
 def user_register(user_id, user):
     user["id"] = user_id
+
+    is_admin = user.get("is_admin", False)
+    tenant = user.get("tenant")
+    
+    role_member = f"normal@{tenant}"
+    role_owner = f"owner@{tenant}"
+
+    tenant_name = role_owner if is_admin else role_member
+
     tenant = {
         "id": user_id,
-        "name": user["nickname"] + "‘s Kingdom",
+        # "name": user["nickname"] + "‘s Kingdom",
+        "name": tenant_name,
         "llm_id": settings.CHAT_MDL,
         "embd_id": settings.EMBEDDING_MDL,
         "asr_id": settings.ASR_MDL,
@@ -778,6 +786,34 @@ def user_register(user_id, user):
     UserTenantService.insert(**usr_tenant)
     TenantLLMService.insert_many(tenant_llm)
     FileService.insert(file)
+
+    # ==== 订正租户数据开始 ====
+    # 租户管理员
+    tenant_owner = TenantService.query(name=role_owner)
+    # 租户成员
+    tenant_member = [itm.id for itm in TenantService.query(name=role_member)]
+
+    # 需要订正的租户成员（将他们加入到租户管理员的租户内）
+    if tenant_owner:
+        owner_id = tenant_owner[0].id
+        # 已加入租户的成员，排除 owner 自身
+        tenant_member_joined = [itmj.user_id for itmj in UserTenantService.query(tenant_id=owner_id) if itmj.user_id != owner_id]
+        # 取租户成员与已加入租户成员的减集
+        tenant_member_diff = set(tenant_member) - set(tenant_member_joined)
+        tenant_member = list(tenant_member_diff)
+    
+    # 将需要订正的租户成员加入到租户管理员的租户内
+    for member_id in tenant_member:
+        usr_tenant = {
+            "tenant_id": owner_id,
+            "user_id": member_id,
+            "invited_by": owner_id,
+            "role": UserTenantRole.NORMAL,
+        }
+        UserTenantService.insert(**usr_tenant)
+
+    # ==== 订正租户数据结束 ====
+
     return UserService.query(email=user["email"])
 
 
@@ -908,7 +944,27 @@ def tenant_info():
         tenants = TenantService.get_info_by(current_user.id)
         if not tenants:
             return get_data_error_result(message="Tenant not found!")
-        return get_json_result(data=tenants[0])
+        
+        # 共享租户中已经设置的默认模型
+        user_data = tenants[0]
+        if not user_data.get("llm_id"):
+            shared_tenants = [
+                item.tenant_id
+                for item in UserTenantService.get_tenants_by_user_id(current_user.id)
+                if item.tenant_id != current_user.id
+            ]
+            for stid in shared_tenants:
+                st_data = TenantService.get_info_by(stid)
+                if st_data and st_data[0].get("llm_id"):
+                    user_data["llm_id"] = st_data[0].get("llm_id")
+                    user_data["embd_id"] = st_data[0].get("embd_id")
+                    user_data["rerank_id"] = st_data[0].get("rerank_id")
+                    user_data["asr_id"] = st_data[0].get("asr_id")
+                    user_data["img2txt_id"] = st_data[0].get("img2txt_id")
+                    user_data["tts_id"] = st_data[0].get("tts_id")
+                    break
+
+        return get_json_result(data=user_data)
     except Exception as e:
         return server_error_response(e)
 

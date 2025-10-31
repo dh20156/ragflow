@@ -21,7 +21,7 @@ from api.db import LLMType
 from api.db.db_models import DB, LLMFactories, TenantLLM
 from api.db.services.common_service import CommonService
 from api.db.services.langfuse_service import TenantLangfuseService
-from api.db.services.user_service import TenantService
+from api.db.services.user_service import TenantService, UserTenantService
 from rag.llm import ChatModel, CvModel, EmbeddingModel, RerankModel, Seq2txtModel, TTSModel
 
 
@@ -88,42 +88,62 @@ class TenantLLMService(CommonService):
     @DB.connection_context()
     def get_model_config(cls, tenant_id, llm_type, llm_name=None):
         from api.db.services.llm_service import LLMService
-        e, tenant = TenantService.get_by_id(tenant_id)
+        # e, tenant = TenantService.get_by_id(tenant_id)
+
+        if llm_type == LLMType.EMBEDDING.value:
+            mdlnm = "embd_id"
+        elif llm_type == LLMType.SPEECH2TEXT.value:
+            mdlnm = "asr_id"
+        elif llm_type == LLMType.IMAGE2TEXT.value:
+            mdlnm = "img2txt_id"
+        elif llm_type == LLMType.CHAT.value:
+            mdlnm = "llm_id"
+        elif llm_type == LLMType.RERANK:
+            mdlnm = "rerank_id"
+        elif llm_type == LLMType.TTS:
+            mdlnm = "tts_id"
+        else:
+            assert False, "LLM type error"
+        
+        # 共享租户模型
+        e, tenant, model_name = (False, None, None)
+        tenant_ids = [item.tenant_id for item in UserTenantService.get_tenants_by_user_id(tenant_id)]
+        for t_id in tenant_ids:
+            e, tenant = TenantService.get_by_id(t_id)
+            # print(f'\nt_id={t_id}, mdlnm={mdlnm}, tenant={tenant.to_dict()}\n')
+            model_name = getattr(tenant, mdlnm, None)
+            if model_name:
+                break
+
         if not e:
             raise LookupError("Tenant not found")
 
-        if llm_type == LLMType.EMBEDDING.value:
-            mdlnm = tenant.embd_id if not llm_name else llm_name
-        elif llm_type == LLMType.SPEECH2TEXT.value:
-            mdlnm = tenant.asr_id
-        elif llm_type == LLMType.IMAGE2TEXT.value:
-            mdlnm = tenant.img2txt_id if not llm_name else llm_name
-        elif llm_type == LLMType.CHAT.value:
-            mdlnm = tenant.llm_id if not llm_name else llm_name
-        elif llm_type == LLMType.RERANK:
-            mdlnm = tenant.rerank_id if not llm_name else llm_name
-        elif llm_type == LLMType.TTS:
-            mdlnm = tenant.tts_id if not llm_name else llm_name
-        else:
-            assert False, "LLM type error"
+        model_config = cls.get_api_key(tenant.id, model_name)
 
-        model_config = cls.get_api_key(tenant_id, mdlnm)
+        # print(f'\n\nmodel_config={model_config}\n\n')
+
         mdlnm, fid = TenantLLMService.split_model_name_and_factory(mdlnm)
-        if not model_config:  # for some cases seems fid mismatch
-            model_config = cls.get_api_key(tenant_id, mdlnm)
+
         if model_config:
             model_config = model_config.to_dict()
-        elif llm_type == LLMType.EMBEDDING and fid == 'Builtin' and "tei-" in os.getenv("COMPOSE_PROFILES", "") and mdlnm == os.getenv('TEI_MODEL', ''):
-            embedding_cfg = settings.EMBEDDING_CFG
-            model_config = {"llm_factory": 'Builtin', "api_key": embedding_cfg["api_key"], "llm_name": mdlnm, "api_base": embedding_cfg["base_url"]}
-        else:
-            raise LookupError(f"Model({mdlnm}@{fid}) not authorized")
-
-        llm = LLMService.query(llm_name=mdlnm) if not fid else LLMService.query(llm_name=mdlnm, fid=fid)
-        if not llm and fid:  # for some cases seems fid mismatch
-            llm = LLMService.query(llm_name=mdlnm)
-        if llm:
-            model_config["is_tools"] = llm[0].is_tools
+            llm = LLMService.query(llm_name=mdlnm) if not fid else LLMService.query(llm_name=mdlnm, fid=fid)
+            if not llm and fid:  # for some cases seems fid mismatch
+                llm = LLMService.query(llm_name=mdlnm)
+            if llm:
+                model_config["is_tools"] = llm[0].is_tools
+        if not model_config:
+            if llm_type in [LLMType.EMBEDDING, LLMType.RERANK]:
+                llm = LLMService.query(llm_name=mdlnm) if not fid else LLMService.query(llm_name=mdlnm, fid=fid)
+                if llm and llm[0].fid in ["Youdao", "FastEmbed", "BAAI"]:
+                    model_config = {"llm_factory": llm[0].fid, "api_key": "", "llm_name": mdlnm, "api_base": ""}
+            if not model_config:
+                if mdlnm == "flag-embedding":
+                    model_config = {"llm_factory": "Tongyi-Qianwen", "api_key": "", "llm_name": llm_name,
+                                    "api_base": ""}
+                else:
+                    if not mdlnm:
+                        raise LookupError(f"Type of {llm_type} model is not set.")
+                    raise LookupError("Model({}) not authorized".format(mdlnm))
         return model_config
 
     @classmethod
