@@ -27,7 +27,7 @@ from api.db.db_models import TenantLLM
 from api.utils.api_utils import get_json_result
 from api.utils.base64_image import test_image
 from rag.llm import EmbeddingModel, ChatModel, RerankModel, CvModel, TTSModel
-
+from api import settings
 
 @manager.route('/factories', methods=['GET'])  # noqa: F821
 @login_required
@@ -370,12 +370,15 @@ def my_llms():
 @login_required
 def list_app():
     self_deployed = ["Youdao", "FastEmbed", "BAAI", "Ollama", "Xinference", "LocalAI", "LM-Studio", "GPUStack"]
-    weighted = ["Youdao", "FastEmbed", "BAAI"] if settings.LIGHTEN != 0 else []
+    weighted = ["Youdao", "FastEmbed", "BAAI"] if getattr(settings, "LIGHTEN", 0) != 0 else []
     model_type = request.args.get("model_type")
     try:
         # objs = TenantLLMService.query(tenant_id=current_user.id)
         # 共享租户的llm
-        tenant_ids = [item.tenant_id for item in UserTenantService.get_tenants_by_user_id(current_user.id)]
+        tenant_ids = [
+            item.get("tenant_id") 
+            for item in UserTenantService.get_tenants_by_user_id(current_user.id)
+        ]
 
         if not tenant_ids:
             objs = []

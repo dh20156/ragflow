@@ -747,7 +747,10 @@ def user_register(user_id, user):
     role_member = f"normal@{tenant}"
     role_owner = f"owner@{tenant}"
 
-    tenant_name = role_owner if is_admin else role_member
+    # 租户管理员
+    tenant_owner = TenantService.query(name=role_owner)
+
+    tenant_name = role_owner if is_admin and not tenant_owner else role_member
 
     tenant = {
         "id": user_id,
@@ -788,16 +791,22 @@ def user_register(user_id, user):
     FileService.insert(file)
 
     # ==== 订正租户数据开始 ====
-    # 租户管理员
-    tenant_owner = TenantService.query(name=role_owner)
-    # 租户成员
-    tenant_member = [itm.id for itm in TenantService.query(name=role_member)]
-
     # 需要订正的租户成员（将他们加入到租户管理员的租户内）
+    # 再查一次租户管理员
+    tenant_owner = TenantService.query(name=role_owner)
     if tenant_owner:
         owner_id = tenant_owner[0].id
+        # 租户成员
+        tenant_member = [
+            itm.id 
+            for itm in TenantService.query(name=role_member)
+        ]
         # 已加入租户的成员，排除 owner 自身
-        tenant_member_joined = [itmj.user_id for itmj in UserTenantService.query(tenant_id=owner_id) if itmj.user_id != owner_id]
+        tenant_member_joined = [
+            itmj.user_id 
+            for itmj in UserTenantService.query(tenant_id=owner_id) 
+            if itmj.user_id != owner_id
+        ]
         # 取租户成员与已加入租户成员的减集
         tenant_member_diff = set(tenant_member) - set(tenant_member_joined)
         tenant_member = list(tenant_member_diff)
@@ -949,9 +958,9 @@ def tenant_info():
         user_data = tenants[0]
         if not user_data.get("llm_id"):
             shared_tenants = [
-                item.tenant_id
+                item.get("tenant_id")
                 for item in UserTenantService.get_tenants_by_user_id(current_user.id)
-                if item.tenant_id != current_user.id
+                if item.get("tenant_id") != current_user.id
             ]
             for stid in shared_tenants:
                 st_data = TenantService.get_info_by(stid)

@@ -107,7 +107,10 @@ class TenantLLMService(CommonService):
         
         # 共享租户模型
         e, tenant, model_name = (False, None, None)
-        tenant_ids = [item.tenant_id for item in UserTenantService.get_tenants_by_user_id(tenant_id)]
+        tenant_ids = [
+            item.get("tenant_id")
+            for item in UserTenantService.get_tenants_by_user_id(tenant_id)
+        ]
         for t_id in tenant_ids:
             e, tenant = TenantService.get_by_id(t_id)
             # print(f'\nt_id={t_id}, mdlnm={mdlnm}, tenant={tenant.to_dict()}\n')
