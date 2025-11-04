@@ -58,8 +58,37 @@ const LoginSilentPage = () => {
     void run();
   }, [login, navigate]);
 
-  // 无 UI：不渲染任何内容
-  return null;
+  // 渲染一个全屏居中的旋转 loading（Tailwind 的 animate-spin）
+  return (
+    <div
+      className="grid h-dvh w-full place-items-center bg-transparent"
+      role="status"
+      aria-live="polite"
+      aria-label="加载中"
+    >
+      <svg
+        className="size-10 animate-spin motion-reduce:animate-none [transform-box:fill-box] [transform-origin:center]"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <g transform="translate(2.5 2.5)">
+          <path
+            d="M9.5 2.9375V5.5625M9.5 13.4375V16.0625M2.9375 9.5H5.5625M13.4375 9.5H16.0625"
+            stroke="currentColor"
+            strokeWidth="1.875"
+            strokeLinecap="round"
+          />
+          <path
+            d="M4.86011 4.85961L6.71627 6.71577M12.2847 12.2842L14.1409 14.1404M4.86011 14.1404L6.71627 12.2842M12.2847 6.71577L14.1409 4.85961"
+            stroke="currentColor"
+            strokeWidth="1.875"
+            strokeLinecap="round"
+          />
+        </g>
+      </svg>
+      <span className="sr-only">加载中</span>
+    </div>
+  );
 };
 
 export default LoginSilentPage;
