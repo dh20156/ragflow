@@ -29,6 +29,7 @@ from api.utils.file_utils import get_project_base_directory
 from rag.nlp import search
 
 # anybase config
+API_TOKEN_SALT = "ragflow"
 ANYBASE_ME_URL = "http://127.0.0.1:8080/api/v1/user/me"
 
 LLM = None

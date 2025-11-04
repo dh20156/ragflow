@@ -50,7 +50,7 @@ export const useSendSharedMessage = () => {
     useCreateNextSharedConversation();
   const { handleInputChange, value, setValue } = useHandleMessageInputChange();
   const { send, answer, done, stopOutputMessage } = useSendMessageWithSse(
-    `/api/v1/${from === SharedFrom.Agent ? 'agentbots' : 'chatbots'}/${conversationId}/completions`,
+    `/ragflow/api/v1/${from === SharedFrom.Agent ? 'agentbots' : 'chatbots'}/${conversationId}/completions`,
   );
   const {
     derivedMessages,

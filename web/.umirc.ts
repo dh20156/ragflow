@@ -39,14 +39,27 @@ export default defineConfig({
   ],
   proxy: [
     {
-      context: ['/api/v1/admin'],
+      context: ['/ragflow/api/v1/admin'],
       target: 'http://127.0.0.1:9381/',
       changeOrigin: true,
       ws: true,
       logger: console,
+      pathRewrite: {
+        '^/ragflow': '', // 移除 /ragflow 前缀
+      },
     },
     {
-      context: ['/api', '/v1'],
+      context: ['/ragflow/api'], // 匹配所有以 /ragflow 开头的请求
+      target: 'http://127.0.0.1:9380/',
+      changeOrigin: true,
+      ws: true,
+      logger: console,
+      pathRewrite: {
+        '^/ragflow': '', // 移除 /ragflow 前缀
+      },
+    },
+    {
+      context: ['/v1'],
       target: 'http://127.0.0.1:9380/',
       changeOrigin: true,
       ws: true,

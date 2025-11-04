@@ -40,7 +40,7 @@ export const useSendNextSharedMessage = (
   addEventList: (data: IEventList, messageId: string) => void,
 ) => {
   const { from, sharedId: conversationId } = useGetSharedChatSearchParams();
-  const url = `/api/v1/${from === SharedFrom.Agent ? 'agentbots' : 'chatbots'}/${conversationId}/completions`;
+  const url = `/ragflow/api/v1/${from === SharedFrom.Agent ? 'agentbots' : 'chatbots'}/${conversationId}/completions`;
   const { data: inputsData } = useFetchExternalAgentInputs();
 
   const [params, setParams] = useState<any[]>([]);

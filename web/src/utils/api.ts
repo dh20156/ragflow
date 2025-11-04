@@ -1,5 +1,5 @@
 let api_host = `/v1`;
-const ExternalApi = `/api`;
+const ExternalApi = `/ragflow/api`;
 
 export { api_host };
 

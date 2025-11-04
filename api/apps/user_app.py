@@ -31,6 +31,7 @@ from api.apps.auth import get_auth_client
 from api.db import FileType, UserTenantRole
 from api.db.db_models import TenantLLM
 from api.db.services.file_service import FileService
+from api.db.services.api_service import APITokenService
 from api.db.services.llm_service import get_init_tenant_llm
 from api.db.services.tenant_llm_service import TenantLLMService
 from api.db.services.user_service import TenantService, UserService, UserTenantService
@@ -42,6 +43,7 @@ from api.utils.api_utils import (
     get_json_result,
     server_error_response,
     validate_request,
+    generate_confirmation_token,
 )
 from api.utils.crypt import decrypt
 from rag.utils.redis_conn import REDIS_CONN
@@ -58,8 +60,13 @@ from api.utils.web_utils import (
     captcha_key,
 )
 
-import httpx
+import httpx, hashlib
 
+def hash_string_md5(text):
+    hash_object = hashlib.md5()
+    hash_object.update(text.encode("utf-8"))
+    hashed_text = hash_object.hexdigest()
+    return hashed_text
 
 def anybase_user_login(cookies: dict | None):
     """
@@ -124,7 +131,7 @@ def anybase_user_login(cookies: dict | None):
 
         if not users:
             user_id = get_uuid()
-            is_admin = "admin" in anybase_user_role
+            is_tenant_owner = "tenant_manager" in anybase_user_role
 
             try:
                 # print(f'\n====start register anybase user====\n')
@@ -136,7 +143,7 @@ def anybase_user_login(cookies: dict | None):
                         "avatar": avatar_url,
                         "nickname": anybase_nickname,
                         "tenant": anybase_user_tenant_code,
-                        "is_admin": is_admin,
+                        "is_tenant_owner": is_tenant_owner,
                         "login_channel": "anybase",
                         "last_login_time": get_format_time(),
                         "language": "Chinese",
@@ -741,7 +748,7 @@ def rollback_user_registration(user_id):
 def user_register(user_id, user):
     user["id"] = user_id
 
-    is_admin = user.get("is_admin", False)
+    is_tenant_owner = user.get("is_tenant_owner", False)
     tenant = user.get("tenant")
     
     role_member = f"normal@{tenant}"
@@ -750,7 +757,7 @@ def user_register(user_id, user):
     # 租户管理员
     tenant_owner = TenantService.query(name=role_owner)
 
-    tenant_name = role_owner if is_admin and not tenant_owner else role_member
+    tenant_name = role_owner if is_tenant_owner and not tenant_owner else role_member
 
     tenant = {
         "id": user_id,
@@ -811,15 +818,28 @@ def user_register(user_id, user):
         tenant_member_diff = set(tenant_member) - set(tenant_member_joined)
         tenant_member = list(tenant_member_diff)
     
-    # 将需要订正的租户成员加入到租户管理员的租户内
-    for member_id in tenant_member:
-        usr_tenant = {
-            "tenant_id": owner_id,
-            "user_id": member_id,
-            "invited_by": owner_id,
-            "role": UserTenantRole.NORMAL,
-        }
-        UserTenantService.insert(**usr_tenant)
+        # 将需要订正的租户成员加入到租户管理员的租户内
+        for member_id in tenant_member:
+            usr_tenant = {
+                "tenant_id": owner_id,
+                "user_id": member_id,
+                "invited_by": owner_id,
+                "role": UserTenantRole.NORMAL,
+            }
+            UserTenantService.insert(**usr_tenant)
+
+    # 初始化 API Token
+    API_TOKEN_SALT = getattr(settings, "API_TOKEN_SALT", "ragflow")
+    api_token = {
+        "tenant_id": user_id,
+        "token": hash_string_md5(API_TOKEN_SALT),
+        "beta": generate_confirmation_token().replace("ragflow-", "")[:32],
+        "create_time": current_timestamp(),
+        "create_date": datetime_format(datetime.now()),
+        "update_time": None,
+        "update_date": None,
+    }
+    APITokenService.save(**api_token)
 
     # ==== 订正租户数据结束 ====
 
