@@ -59,5 +59,6 @@ export default storage;
 
 // Will not jump to the login page
 export function redirectToLogin() {
-  window.location.href = location.origin + `/ragflow/login`;
+  let current_path = window.location.pathname.replace('/ragflow/', '/');
+  window.location.href = location.origin + `/ragflow/login?redirect=${current_path}`;
 }
