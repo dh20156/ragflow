@@ -76,7 +76,7 @@ def anybase_user_login(cookies: dict | None):
     返回:
       ("ok", user) / ("unauthorized", None) / ("skip", None) / ("error", str)
     """
-    anybase_me = getattr(settings, "ANYBASE_ME_URL", None)
+    anybase_me = os.getenv("ANYBASE_ME_URL", None)
     if not anybase_me:
         return ("skip", None)
 
@@ -829,11 +829,14 @@ def user_register(user_id, user):
             UserTenantService.insert(**usr_tenant)
 
     # 初始化 API Token
-    API_TOKEN_SALT = getattr(settings, "API_TOKEN_SALT", "ragflow")
+    # tenant_id = owner_id if tenant_owner else user_id
+    # API_TOKEN_SALT = "ragflow"
+    # 将用户id作为api token，以便确认资源归属
     api_token = {
         "tenant_id": user_id,
-        "token": hash_string_md5(API_TOKEN_SALT),
-        "beta": generate_confirmation_token().replace("ragflow-", "")[:32],
+        # "token": hash_string_md5(API_TOKEN_SALT),
+        "token": user_id,
+        "beta": generate_confirmation_token()[:32],
         "create_time": current_timestamp(),
         "create_date": datetime_format(datetime.now()),
         "update_time": None,

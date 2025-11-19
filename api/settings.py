@@ -28,10 +28,6 @@ from api.utils.configs import decrypt_database_config, get_base_config
 from api.utils.file_utils import get_project_base_directory
 from rag.nlp import search
 
-# anybase config
-API_TOKEN_SALT = "ragflow"
-ANYBASE_ME_URL = "http://127.0.0.1:8080/api/v1/user/me"
-
 LLM = None
 LLM_FACTORY = None
 LLM_BASE_URL = None
