@@ -14,7 +14,7 @@
 #  limitations under the License.
 #
 from collections import Counter
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Optional
 from uuid import UUID
 
 from flask import Request
@@ -629,8 +629,11 @@ class BaseListReq(BaseModel):
 
     @field_validator("id", mode="before")
     @classmethod
-    def validate_id(cls, v: Any) -> str:
-        return validate_uuid1_hex(v)
+    def validate_id(cls, v: Any) -> Optional[str]:
+        # 如果是 None、空字符串、或缺失，直接返回 None
+        if v is None or v == "":
+            return None
+        return validate_uuid1_hex(str(v))
 
 
 class ListDatasetReq(BaseListReq): ...
