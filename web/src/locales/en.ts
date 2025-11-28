@@ -943,6 +943,9 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
         'Supports single or batch file upload. For a locally deployed RAGFlow: the total file size limit per upload is 1GB, with a batch upload limit of 32 files. There is no cap on the total number of files per account. For demo.ragflow.io, the total file size limit per upload is 10MB, with each file not exceeding 10MB and a maximum of 128 files per account.',
       local: 'Local uploads',
       s3: 'S3 uploads',
+      anybase: 'Anybase Datasets',
+      chooseDatasetFiles: 'Choose files from datasets',
+      choose: 'Choose',
       preview: 'Preview',
       fileError: 'File error',
       uploadLimit:

@@ -25,10 +25,26 @@ const LoginSilentPage = () => {
         // 1) 判断是否已有登录态
         const authorization = getAuthorization(); // 可能来自 ?auth= 或 localStorage
         const token = authorizationUtil.getToken?.() as string | null;
-
+        /** —————————————————— AnyBase Start —————————————————— */
+        const baseUrl = window.location.protocol + '//' + window.location.hostname
+        const origin =
+          process.env.NODE_ENV === 'development'
+            ? `${baseUrl}:8000`
+            : window.location.origin;
+        /** —————————————————— AnyBase End —————————————————— */
+        const redirect =
+          new URLSearchParams(window.location.search).get('redirect') || '/';
         if (authorization && token) {
-          const redirect =
-            new URLSearchParams(window.location.search).get('redirect') || '/';
+          /** —————————————————— AnyBase Start —————————————————— */
+          window.parent.postMessage(
+            {
+              type: 'LOGIN_SUCCESS',
+              source: 'RagFlow',
+              payload: { authorization },
+            },
+            origin,
+          );
+          /** —————————————————— AnyBase End —————————————————— */
           navigate(redirect);
           return;
         }
@@ -41,8 +57,12 @@ const LoginSilentPage = () => {
 
         // 3) 根据结果跳转（useLogin 已完成本地落库）
         if (code === 0) {
-          const redirect =
-            new URLSearchParams(window.location.search).get('redirect') || '/';
+          authorization = getAuthorization();
+          window.parent.postMessage({
+            type: 'LOGIN_SUCCESS',
+            source: 'RagFlow',
+            payload: { authorization }
+          }, origin);
           navigate(redirect);
           return;
         }

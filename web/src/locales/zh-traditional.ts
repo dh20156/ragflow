@@ -760,6 +760,9 @@ export default {
       directory: '文件夾',
       local: '本地上傳',
       s3: 'S3 上傳',
+      anybase: 'Anybase 數據集',
+      chooseDatasetFiles: '選擇數據集文件',
+      choose: '選擇',
       preview: '預覽',
       fileError: '文件錯誤',
       uploadLimit:

@@ -13,10 +13,13 @@ import { TFunction } from 'i18next';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+import { AnybaseDatasetSelecter } from '../anybase-dataset-selecter';
+import { AnybaseFormItem } from '../anybase-form';
 import { FileUploader } from '../file-uploader';
 import { RAGFlowFormItem } from '../ragflow-form';
 import { Form } from '../ui/form';
 import { Switch } from '../ui/switch';
+import { useCallback, useEffect } from 'react';
 
 function buildUploadFormSchema(t: TFunction) {
   const FormSchema = z.object({
@@ -86,6 +89,35 @@ function UploadForm({ submit, showParseOnCreation }: UploadFormProps) {
   );
 }
 
+function AnybaseForm({ submit }: UploadFormProps) {
+  const { t } = useTranslation();
+  const FormSchema = buildUploadFormSchema(t);
+  const form = useForm<UploadFormSchemaType>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: {
+      parseOnCreation: false,
+      fileList: [],
+    },
+  });
+  return (
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(submit)}
+        id={UploadFormId}
+        className="space-y-4"
+      >
+        <AnybaseFormItem
+          name="parseOnCreation"
+          label={t('fileManager.chooseDatasetFiles')}
+          horizontal
+        >
+          {() => <AnybaseDatasetSelecter />}
+        </AnybaseFormItem>
+      </form>
+    </Form>
+  );
+}
+
 type FileUploadDialogProps = IModalProps<UploadFormSchemaType> &
   Pick<UploadFormProps, 'showParseOnCreation'>;
 export function FileUploadDialog({
@@ -96,6 +128,35 @@ export function FileUploadDialog({
 }: FileUploadDialogProps) {
   const { t } = useTranslation();
 
+  /** —————————————————— AnyBase Start —————————————————— */
+
+  // 处理来自Anybase的消息
+  const handleMessage = useCallback((event: MessageEvent) => {
+    // 验证消息来源（即使同源也建议验证）
+    if (!event.origin.startsWith(window.location.origin) && process.env.NODE_ENV !== "development") {
+      return;
+    }
+
+    const { type, payload, source } = event.data;
+
+    if (source !== 'Anybase') return;
+
+    switch (type) {
+      /** 登录成功 */
+      case 'FILES_UPLOAD_COMPLETE':
+        if(payload)
+          window.location.reload()
+        break;
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [handleMessage]);
+
+  /** —————————————————— AnyBase End —————————————————— */
+
   return (
     <Dialog open onOpenChange={hideModal}>
       <DialogContent>
@@ -105,7 +166,10 @@ export function FileUploadDialog({
         <Tabs defaultValue="account">
           <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="account">{t('fileManager.local')}</TabsTrigger>
-            <TabsTrigger value="password">{t('fileManager.s3')}</TabsTrigger>
+            {/* <TabsTrigger value="password">{t('fileManager.s3')}</TabsTrigger> */}
+            <TabsTrigger value="password">
+              {t('fileManager.anybase')}
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="account">
             <UploadForm
@@ -113,13 +177,22 @@ export function FileUploadDialog({
               showParseOnCreation={showParseOnCreation}
             ></UploadForm>
           </TabsContent>
-          <TabsContent value="password">{t('common.comingSoon')}</TabsContent>
-        </Tabs>
+          <TabsContent value="password">
+            <AnybaseForm submit={onOk!}></AnybaseForm>
+          </TabsContent>
+          {/* <TabsContent value="password">{t('common.comingSoon')}</TabsContent> */}
+          <TabsContent value="account">
         <DialogFooter>
-          <ButtonLoading type="submit" loading={loading} form={UploadFormId}>
+              <ButtonLoading
+                type="submit"
+                loading={loading}
+                form={UploadFormId}
+              >
             {t('common.save')}
           </ButtonLoading>
         </DialogFooter>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
