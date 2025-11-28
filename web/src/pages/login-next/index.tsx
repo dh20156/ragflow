@@ -23,7 +23,7 @@ const LoginSilentPage = () => {
     const run = async () => {
       try {
         // 1) 判断是否已有登录态
-        const authorization = getAuthorization(); // 可能来自 ?auth= 或 localStorage
+        let authorization = getAuthorization(); // 可能来自 ?auth= 或 localStorage
         const token = authorizationUtil.getToken?.() as string | null;
         /** —————————————————— AnyBase Start —————————————————— */
         const baseUrl = window.location.protocol + '//' + window.location.hostname
@@ -44,6 +44,7 @@ const LoginSilentPage = () => {
             },
             origin,
           );
+          console.log("GOT RAGFLOW AUTH 1", baseUrl, origin)
           /** —————————————————— AnyBase End —————————————————— */
           navigate(redirect);
           return;
@@ -63,6 +64,7 @@ const LoginSilentPage = () => {
             source: 'RagFlow',
             payload: { authorization }
           }, origin);
+          console.log("GOT RAGFLOW AUTH 2", baseUrl, origin)
           navigate(redirect);
           return;
         }
