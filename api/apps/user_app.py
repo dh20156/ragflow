@@ -131,7 +131,7 @@ def anybase_user_login(cookies: dict | None):
 
         if not users:
             user_id = get_uuid()
-            is_tenant_owner = "tenant_manager" in anybase_user_role
+            is_tenant_owner = "ragflow_llm_manager" in anybase_user_role
 
             try:
                 # print(f'\n====start register anybase user====\n')
