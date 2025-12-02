@@ -51,6 +51,7 @@ from api.utils.validation_utils import (
 )
 from rag.nlp import search
 from rag.settings import PAGERANK_FLD
+from rag.utils.storage_factory import STORAGE_IMPL
 
 
 @manager.route("/datasets", methods=["POST"])  # noqa: F821
@@ -214,6 +215,13 @@ def delete(tenant_id):
                     error_kb_ids.append(kb_id)
                     continue
                 kb_id_instance_pairs.append((kb_id, kb))
+                
+                # Fix for cleanup minio buckets for kbs
+                settings.docStoreConn.delete({"kb_id": kb.id}, search.index_name(tenant_id), kb.id)
+                settings.docStoreConn.deleteIdx(search.index_name(tenant_id), kb.id)
+
+                if hasattr(STORAGE_IMPL, 'remove_bucket'):
+                    STORAGE_IMPL.remove_bucket(kb.id)
             if len(error_kb_ids) > 0:
                 return get_error_permission_result(
                     message=f"""User '{tenant_id}' lacks permission for datasets: '{", ".join(error_kb_ids)}'""")
