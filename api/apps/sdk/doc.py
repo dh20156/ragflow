@@ -937,12 +937,15 @@ def list_chunks(tenant_id, dataset_id, document_id):
     page = int(req.get("page", 1))
     size = int(req.get("page_size", 30))
     question = req.get("keywords", "")
+    # support available_int filter
+    available_int = int(req.get("available_int", 1))
     query = {
         "doc_ids": [doc_id],
         "page": page,
         "size": size,
         "question": question,
         "sort": True,
+        "available_int": available_int,
     }
     key_mapping = {
         "chunk_num": "chunk_count",
@@ -994,8 +997,10 @@ def list_chunks(tenant_id, dataset_id, document_id):
         res["chunks"].append(final_chunk)
         _ = Chunk(**final_chunk)
 
-    elif settings.docStoreConn.indexExist(search.index_name(tenant_id), dataset_id):
-        sres = settings.retriever.search(query, search.index_name(tenant_id), [dataset_id], emb_mdl=None, highlight=True)
+    # elif settings.docStoreConn.indexExist(search.index_name(tenant_id), dataset_id):
+    else:
+        # sres = settings.retriever.search(query, search.index_name(tenant_id), [dataset_id], emb_mdl=None, highlight=True)
+        sres = settings.retriever.search(query, search.index_name(tenant_id), [dataset_id], highlight=False)
         res["total"] = sres.total
         for id in sres.ids:
             d = {
